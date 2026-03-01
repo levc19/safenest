@@ -18,8 +18,8 @@ DOMAIN_CONFIGS = {
             'after_school_hours': 10,
         }
     },
-    'elder_care': {
-        'label': 'Elder Care',
+    'elder_safety': {
+        'label': 'Elder Safety',
         'description': 'Monitor elderly persons for health & safety risks',
         'signal_weights': {
             'fall_detected': 50,
@@ -30,8 +30,8 @@ DOMAIN_CONFIGS = {
             'isolation_risk': 25,
         }
     },
-    'environmental': {
-        'label': 'Environmental Hazards',
+    'environmental_hazard': {
+        'label': 'Environmental Hazard',
         'description': 'Detect environmental risks (fire, flooding, hazmat)',
         'signal_weights': {
             'smoke_detected': 55,
@@ -44,8 +44,8 @@ DOMAIN_CONFIGS = {
             'power_outage': 20,
         }
     },
-    'crime_prevention': {
-        'label': 'Crime Prevention',
+    'crime': {
+        'label': 'Crime',
         'description': 'Detect suspicious activity & crime risk indicators',
         'signal_weights': {
             'loitering_pattern': 35,
@@ -54,6 +54,45 @@ DOMAIN_CONFIGS = {
             'weapon_detected': 60,
             'theft_in_progress': 50,
             'after_hours_access': 25,
+        }
+    },
+    # Legacy domain names for backward compatibility
+    'crime_prevention': {
+        'label': 'Crime',
+        'description': 'Detect suspicious activity & crime risk indicators',
+        'signal_weights': {
+            'loitering_pattern': 35,
+            'forced_entry': 55,
+            'multiple_people_gathered': 30,
+            'weapon_detected': 60,
+            'theft_in_progress': 50,
+            'after_hours_access': 25,
+        }
+    },
+    'elder_care': {
+        'label': 'Elder Safety',
+        'description': 'Monitor elderly persons for health & safety risks',
+        'signal_weights': {
+            'fall_detected': 50,
+            'no_movement_extended': 40,
+            'caregiver_absent': 35,
+            'emergency_call_pressed': 45,
+            'abnormal_vitals': 38,
+            'isolation_risk': 25,
+        }
+    },
+    'environmental': {
+        'label': 'Environmental Hazard',
+        'description': 'Detect environmental risks (fire, flooding, hazmat)',
+        'signal_weights': {
+            'smoke_detected': 55,
+            'heat_anomaly': 45,
+            'water_flooding': 50,
+            'toxic_fumes': 60,
+            'fire_smoke_detected': 70,
+            'fire_glow_detected': 65,
+            'structural_damage': 40,
+            'power_outage': 20,
         }
     },
 }

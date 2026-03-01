@@ -156,6 +156,9 @@ def analyze_risk(signals: Dict[str, bool], domain: str = 'child_safety', context
     domain_config = get_domain_config(domain)
     signal_weights = domain_config['signal_weights']
     
+    print(f"  Domain config: {domain} -> {list(signal_weights.keys())}")
+    print(f"  Signal weights: {signal_weights}")
+    
     # Determine escalation bonuses (simple formula: 50% of signal weight)
     escalation_bonuses = {k: int(v * 0.5) for k, v in signal_weights.items()}
     escalation_base = 20  # Start at 20%
@@ -178,14 +181,22 @@ def analyze_risk(signals: Dict[str, bool], domain: str = 'child_safety', context
         if signal_values.get(s, 0.0) > 0
     }
     weighted_sum = sum(signal_contributions.values())
+    
+    print(f"  Signal values: {signal_values}")
+    print(f"  Signal contributions: {signal_contributions}")
+    print(f"  Weighted sum: {weighted_sum}")
 
     # Determine confidence factor based on number of sufficiently-strong signals
     num_signals = sum(1 for v in signal_values.values() if v > 0.1)
     confidence_factor = calculate_confidence_factor(num_signals)
+    
+    print(f"  Num signals: {num_signals}, Confidence factor: {confidence_factor}")
 
     # Calculate final risk score (use weighted sum scaled by confidence)
     raw_score = weighted_sum * confidence_factor
     risk_score = min(max(raw_score, 0), 100)  # Clamp to [0, 100]
+    
+    print(f"  Raw score: {raw_score}, Final risk score: {risk_score}")
     
     # Determine danger rank
     danger_color, danger_tier = get_danger_rank(risk_score)

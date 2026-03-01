@@ -44,6 +44,8 @@ export const SAFETY_DOMAINS = {
       { key: 'heat_anomaly', label: 'Extreme Heat', weight: 45 },
       { key: 'water_flooding', label: 'Water Flooding', weight: 50 },
       { key: 'toxic_fumes', label: 'Toxic Fumes Detected', weight: 60 },
+      { key: 'fire_smoke_detected', label: 'Fire/Smoke Detected', weight: 70 },
+      { key: 'fire_glow_detected', label: 'Fire Glow Detected', weight: 65 },
       { key: 'structural_damage', label: 'Structural Damage', weight: 40 },
       { key: 'power_outage', label: 'Power Outage', weight: 20 },
     ],

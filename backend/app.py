@@ -74,6 +74,10 @@ def analyze_risk_endpoint():
         domain = data.get("domain", "child_safety")  # Default to child_safety
         context = data.get("context", {})
         
+        # Debug logging
+        print(f"🔍 Received domain: '{domain}'")
+        print(f"🔍 Received signals: {signals}")
+        
         # Analyze risk with domain-specific configuration
         result = analyze_risk(signals, domain=domain, context=context)
         
