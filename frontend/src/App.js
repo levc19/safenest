@@ -200,7 +200,12 @@ function App() {
       {/* Header */}
       <header className="header">
         <div className="header-content">
-          <h1>🏠 SafeNest</h1>
+          <h1>
+            <svg className="shield-icon" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 2L4 8V16C4 24 16 30 16 30C16 30 28 24 28 16V8L16 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            </svg>
+            SafeNest
+          </h1>
           <p className="tagline">Privacy-Preserving Community Safety Risk Intelligence</p>
         </div>
       </header>
@@ -216,13 +221,13 @@ function App() {
           className={`view-tab ${currentView === 'dashboard' ? 'active' : ''}`}
           onClick={() => setCurrentView('dashboard')}
         >
-          📊 Dashboard
+          Dashboard
         </button>
         <button
           className={`view-tab ${currentView === 'video' ? 'active' : ''}`}
           onClick={() => setCurrentView('video')}
         >
-          🎬 Video Analysis
+          Video Analysis
         </button>
       </div>
 

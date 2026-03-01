@@ -12,7 +12,7 @@ function DomainSelector({ selectedDomain, onDomainChange, currentDomainInfo }) {
 
   return (
     <div className="domain-selector">
-      <h3>🎯 Select Safety Domain:</h3>
+      <h3>Select Safety Domain</h3>
       <div className="domain-buttons">
         {domains.map((domain) => (
           <button
