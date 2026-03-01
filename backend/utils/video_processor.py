@@ -280,7 +280,7 @@ def detect_color_anomaly(frame):
     b, g, r = cv2.split(frame)
     avg_channels = np.mean([b, g, r], axis=0)
     red_dominance = np.mean(r.astype(np.float32) - avg_channels) / 255.0
-    red_dominance = max(0, min(1.0, red_dominance + 0.3))
+    red_dominance = max(0, min(1.0, red_dominance))
     
     # Color saturation - HSV
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)

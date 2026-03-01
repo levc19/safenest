@@ -125,46 +125,28 @@ function App() {
 
       // Track if response received
       let responseReceived = false;
+      let currentProgress = 5;
 
-      // Smooth progress simulation
-      let progressTarget = 30;
       const updateProgress = () => {
         if (responseReceived) return; // Stop when response arrives
         
-        setVideoAnalysisProgress((prev) => {
-          if (prev < progressTarget) {
-            return Math.min(prev + 2 + Math.random() * 3, progressTarget);
-          }
-          if (prev < 95) {
-            return Math.min(prev + 0.5, 95);
-          }
-          return 95; // Cap at 95% until response
-        });
+        // Increment smoothly: 2-5% per update
+        currentProgress = Math.min(currentProgress + 2 + Math.random() * 3, 95);
+        setVideoAnalysisProgress(currentProgress);
       };
 
-      const progressInterval = setInterval(updateProgress, 400);
+      const progressInterval = setInterval(updateProgress, 500);
 
-      // Update status at different stages
+      // Update status messages based on time elapsed
+      let elapsedTime = 0;
       const statusInterval = setInterval(() => {
         if (responseReceived) return;
         
-        setVideoAnalysisProgress((curr) => {
-          if (curr < 30) progressTarget = 30;
-          else if (curr < 50) {
-            progressTarget = 50;
-            setVideoAnalysisStatus('Extracting frames...');
-          } else if (curr < 70) {
-            progressTarget = 70;
-            setVideoAnalysisStatus('Analyzing motion & poses...');
-          } else if (curr < 85) {
-            progressTarget = 85;
-            setVideoAnalysisStatus('Classifying domain...');
-          } else {
-            setVideoAnalysisStatus('Computing risk score...');
-          }
-          return curr;
-        });
-      }, 3000);
+        elapsedTime += 1000;
+        if (elapsedTime > 8000) setVideoAnalysisStatus('Classifying domain...');
+        else if (elapsedTime > 5000) setVideoAnalysisStatus('Analyzing motion & poses...');
+        else if (elapsedTime > 2000) setVideoAnalysisStatus('Extracting frames...');
+      }, 1000);
 
       // Set timeout for backend response (2.5 minutes)
       const timeoutId = setTimeout(() => {
