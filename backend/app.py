@@ -87,9 +87,6 @@ def analyze_risk_endpoint():
         result["domain"] = domain
         alerts.append(result)
         
-        # Purge old alerts before returning
-        purge_old_alerts()
-        
         return jsonify(result), 200
     
     except Exception as e:
@@ -124,9 +121,6 @@ def get_alerts():
     }
     """
     try:
-        # Purge old alerts first
-        purge_old_alerts()
-        
         # Sort by timestamp descending (most recent first)
         sorted_alerts = sorted(
             alerts,
@@ -137,7 +131,7 @@ def get_alerts():
         return jsonify({
             "alerts": sorted_alerts,
             "count": len(sorted_alerts),
-            "retention_minutes": ALERT_RETENTION_MINUTES,
+            "retention_minutes": None,
             "timestamp": datetime.utcnow().isoformat() + "Z",
         }), 200
     
@@ -450,7 +444,6 @@ def analyze_video_endpoint():
                 'timestamp': datetime.utcnow().isoformat() + "Z",
             }
             alerts.append(alert_entry)
-            purge_old_alerts()
             
             return jsonify(response), 200
         
