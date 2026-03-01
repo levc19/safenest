@@ -1099,17 +1099,18 @@ body {
 
 .probability-item {
   display: grid;
-  grid-template-columns: minmax(140px, auto) 1fr 50px;
+  grid-template-columns: 140px 1fr 50px;
   gap: 1rem;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .probability-label {
   font-weight: 600;
   font-size: 0.9rem;
   color: var(--color-dark);
-  word-wrap: break-word;
+  word-break: break-word;
   overflow-wrap: break-word;
+  line-height: 1.2;
 }
 
 .probability-bar {
@@ -1377,7 +1378,7 @@ body {
   }
 
   .probability-item {
-    grid-template-columns: minmax(110px, auto) 1fr 40px;
+    grid-template-columns: 110px 1fr 40px;
     gap: 0.75rem;
   }
 
