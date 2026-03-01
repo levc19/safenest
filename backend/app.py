@@ -346,11 +346,9 @@ def analyze_video_endpoint():
                 {'faces_detected': max([t.get('signal', {}).get('adult_loitering_detected', 0) for t in timeline], default=0)}
             )
             
-            # Convert signals to boolean for risk scoring
-            boolean_signals = signals_to_boolean_dict(all_signal_features, threshold=0.35)
-            
-            # Score the risk using standard CRI engine
-            risk_result = analyze_risk(boolean_signals, domain=overall_domain['primary_domain'])
+            # Score the risk using standard CRI engine — pass numeric confidence scores (0..1)
+            # to allow proportional contributions rather than strict booleans.
+            risk_result = analyze_risk(all_signal_features, domain=overall_domain['primary_domain'])
             
             response = {
                 'status': 'success',

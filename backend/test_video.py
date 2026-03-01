@@ -84,8 +84,8 @@ try:
         print(f"      - {dom}: {prob:.2f}")
     
     print("\n6️⃣ Computing risk score...")
-    boolean_signals = signals_to_boolean_dict(signal_features, threshold=0.35)
-    risk_result = analyze_risk(boolean_signals, domain=domain_result['primary_domain'])
+    # Pass numeric signal confidences directly to the scorer (0..1)
+    risk_result = analyze_risk(signal_features, domain=domain_result['primary_domain'])
     print(f"   Risk score: {risk_result['risk_score']:.2f}")
     print(f"   Danger rank: {risk_result['danger_rank']}")
     
