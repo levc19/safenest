@@ -8,10 +8,16 @@ import ResultsCard from './components/ResultsCard';
 import AlertHistory from './components/AlertHistory';
 import PrivacyBanner from './components/PrivacyBanner';
 import HeatMap from './components/HeatMap';
+import VideoUploader from './components/VideoUploader';
+import AnalysisProgress from './components/AnalysisProgress';
+import VideoAnalysisResults from './components/VideoAnalysisResults';
 
 const API_BASE_URL = 'http://localhost:5001';
 
 function App() {
+  // View state
+  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' or 'video'
+
   // Domain state
   const [selectedDomain, setSelectedDomain] = useState('child_safety');
   const currentDomain = getDomainById(selectedDomain);
@@ -24,7 +30,13 @@ function App() {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showPrivacy, setShowPrivacy] = useState(true);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+
+  // Video analysis state
+  const [videoAnalysisProgress, setVideoAnalysisProgress] = useState(0);
+  const [videoAnalysisStatus, setVideoAnalysisStatus] = useState('');
+  const [videoAnalysisResult, setVideoAnalysisResult] = useState(null);
+  const [isAnalyzingVideo, setIsAnalyzingVideo] = useState(false);
 
   // Initialize signals when domain changes
   useEffect(() => {
@@ -100,6 +112,107 @@ function App() {
     }
   };
 
+  const analyzeVideo = async (videoFile) => {
+    setIsAnalyzingVideo(true);
+    setVideoAnalysisProgress(5);
+    setVideoAnalysisStatus('Uploading video...');
+    setVideoAnalysisResult(null);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('video', videoFile);
+
+      // Track if response received
+      let responseReceived = false;
+
+      // Smooth progress simulation
+      let progressTarget = 30;
+      const updateProgress = () => {
+        if (responseReceived) return; // Stop when response arrives
+        
+        setVideoAnalysisProgress((prev) => {
+          if (prev < progressTarget) {
+            return Math.min(prev + 2 + Math.random() * 3, progressTarget);
+          }
+          if (prev < 95) {
+            return Math.min(prev + 0.5, 95);
+          }
+          return 95; // Cap at 95% until response
+        });
+      };
+
+      const progressInterval = setInterval(updateProgress, 400);
+
+      // Update status at different stages
+      const statusInterval = setInterval(() => {
+        if (responseReceived) return;
+        
+        setVideoAnalysisProgress((curr) => {
+          if (curr < 30) progressTarget = 30;
+          else if (curr < 50) {
+            progressTarget = 50;
+            setVideoAnalysisStatus('Extracting frames...');
+          } else if (curr < 70) {
+            progressTarget = 70;
+            setVideoAnalysisStatus('Analyzing motion & poses...');
+          } else if (curr < 85) {
+            progressTarget = 85;
+            setVideoAnalysisStatus('Classifying domain...');
+          } else {
+            setVideoAnalysisStatus('Computing risk score...');
+          }
+          return curr;
+        });
+      }, 3000);
+
+      // Set timeout for backend response (2.5 minutes)
+      const timeoutId = setTimeout(() => {
+        if (!responseReceived) {
+          clearInterval(progressInterval);
+          clearInterval(statusInterval);
+          setIsAnalyzingVideo(false);
+          setError('⏱️ Video analysis timeout - backend is taking too long. Is the server running?');
+          setVideoAnalysisProgress(0);
+        }
+      }, 150000); // 2.5 minute timeout
+
+      // Upload and analyze
+      const response = await axios.post(`${API_BASE_URL}/analyze-video`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 150000, // Match timeout above
+      });
+
+      responseReceived = true;
+      clearTimeout(timeoutId);
+      clearInterval(progressInterval);
+      clearInterval(statusInterval);
+      
+      setVideoAnalysisProgress(100);
+      setVideoAnalysisStatus('✅ Analysis complete!');
+      setVideoAnalysisResult(response.data);
+
+      // Refresh alerts after analysis
+      fetchAlerts();
+    } catch (err) {
+      let errorMsg = 'Error analyzing video';
+      
+      if (err.code === 'ECONNABORTED') {
+        errorMsg = '⏱️ Request timeout - backend is not responding';
+      } else if (err.response?.data?.error) {
+        errorMsg = err.response.data.error;
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      
+      setError(errorMsg);
+      console.error('Video analysis error:', err);
+    } finally {
+      setIsAnalyzingVideo(false);
+      setTimeout(() => setVideoAnalysisProgress(0), 2000);
+    }
+  };
+
   return (
     <div className="app">
       {/* Header */}
@@ -115,6 +228,22 @@ function App() {
         <PrivacyBanner onClose={() => setShowPrivacy(false)} />
       )}
 
+      {/* View Tabs */}
+      <div className="view-tabs">
+        <button
+          className={`view-tab ${currentView === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setCurrentView('dashboard')}
+        >
+          📊 Dashboard
+        </button>
+        <button
+          className={`view-tab ${currentView === 'video' ? 'active' : ''}`}
+          onClick={() => setCurrentView('video')}
+        >
+          🎬 Video Analysis
+        </button>
+      </div>
+
       {/* Main Content */}
       <main className="main-content">
         <div className="container">
@@ -124,38 +253,69 @@ function App() {
             </div>
           )}
 
-          {/* Domain Selector */}
-          <DomainSelector
-            selectedDomain={selectedDomain}
-            onDomainChange={setSelectedDomain}
-            currentDomainInfo={currentDomain}
-          />
-
-          <div className="dashboard-grid">
-            {/* Left Column: Signal Simulator + Results */}
-            <div className="left-column">
-              <SignalSimulator
-                domain={currentDomain}
-                signals={signals}
-                onSignalChange={handleSignalChange}
-                onAnalyze={analyzeRisk}
-                onRandomize={randomizeSignals}
-                loading={loading}
+          {currentView === 'dashboard' ? (
+            <>
+              {/* Dashboard View */}
+              <DomainSelector
+                selectedDomain={selectedDomain}
+                onDomainChange={setSelectedDomain}
+                currentDomainInfo={currentDomain}
               />
 
-              {latestResult && (
-                <ResultsCard result={latestResult} domain={currentDomain} />
+              <div className="dashboard-grid">
+                {/* Left Column: Signal Simulator + Results */}
+                <div className="left-column">
+                  <SignalSimulator
+                    domain={currentDomain}
+                    signals={signals}
+                    onSignalChange={handleSignalChange}
+                    onAnalyze={analyzeRisk}
+                    onRandomize={randomizeSignals}
+                    loading={loading}
+                  />
+
+                  {latestResult && (
+                    <ResultsCard result={latestResult} domain={currentDomain} />
+                  )}
+                </div>
+
+                {/* Right Column: Alert History */}
+                <div className="right-column">
+                  <AlertHistory alerts={alerts} domain={currentDomain} onClearAlerts={clearAlerts} />
+                </div>
+              </div>
+
+              {/* Heat Map - Geographic Risk Distribution */}
+              <HeatMap alerts={alerts} />
+            </>
+          ) : (
+            <>
+              {/* Video Analysis View */}
+              {!isAnalyzingVideo && !videoAnalysisResult ? (
+                <VideoUploader onAnalyze={analyzeVideo} isAnalyzing={isAnalyzingVideo} />
+              ) : isAnalyzingVideo ? (
+                <AnalysisProgress
+                  progress={videoAnalysisProgress}
+                  status={videoAnalysisStatus}
+                  message={videoAnalysisStatus}
+                />
+              ) : (
+                <>
+                  <VideoAnalysisResults result={videoAnalysisResult} />
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setVideoAnalysisResult(null);
+                      setVideoAnalysisProgress(0);
+                    }}
+                    style={{ marginTop: '1rem' }}
+                  >
+                    ← Analyze Another Video
+                  </button>
+                </>
               )}
-            </div>
-
-            {/* Right Column: Alert History */}
-            <div className="right-column">
-              <AlertHistory alerts={alerts} domain={currentDomain} onClearAlerts={clearAlerts} />
-            </div>
-          </div>
-
-          {/* Heat Map - Geographic Risk Distribution */}
-          <HeatMap alerts={alerts} />
+            </>
+          )}
         </div>
       </main>
 

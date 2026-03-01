@@ -38,6 +38,8 @@ DOMAIN_CONFIGS = {
             'heat_anomaly': 45,
             'water_flooding': 50,
             'toxic_fumes': 60,
+            'fire_smoke_detected': 70,
+            'fire_glow_detected': 65,
             'structural_damage': 40,
             'power_outage': 20,
         }
