@@ -323,12 +323,18 @@ def analyze_video_endpoint():
                     {'faces_detected': face_analysis['faces_detected']}
                 )
                 
+                # STEP 2: Estimate face area for keyframe selection clarity metric
+                # Face area based on number and confidence of detected faces
+                face_area_estimate = min(1.0, face_analysis['faces_detected'] * 0.3) if face_analysis['faces_detected'] > 0 else 0
+                
                 timeline.append({
                     'timestamp': timestamp,
                     'domain': frame_domain['primary_domain'],
                     'domain_confidence': float(frame_domain['confidence']),
                     'signals': signal_features,
-                    'motion_intensity': motion_analysis['motion_intensity']
+                    'motion_intensity': motion_analysis['motion_intensity'],
+                    'brightness': frame_analysis.get('brightness', 0.5),
+                    'face_area_estimate': face_area_estimate
                 })
                 
                 prev_frame = frame
@@ -356,7 +362,7 @@ def analyze_video_endpoint():
             # ===== VISION-BASED CLASSIFICATION WITH GPT-4O-MINI =====
             
             keyframes_data = select_keyframes(timeline, frames_list)
-            gpt_result = classify_video_with_vision(keyframes_data, all_signal_features)
+            gpt_result = classify_video_with_vision(keyframes_data, all_signal_features, timeline_data=timeline)
             
             # Extract results with graceful fallback
             gpt_used = gpt_result.get('gpt_used', False)

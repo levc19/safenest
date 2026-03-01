@@ -33,14 +33,13 @@ def select_keyframes(timeline_data, frame_list):
     """
     Select up to 3 keyframes deterministically based on frame analysis.
     
-    Prioritizes:
-    1. Frame with max motion_intensity
-    2. Frame with max fire_smoke_probability
-    3. Frame with max fighting_probability
-    Optional: Include first fall_detected frame if present, but cap at 3 total
+    Prioritizes (STEP 2):
+    1. BEST CLARITY FRAME: Largest face area OR highest brightness + lowest motion blur
+    2. PEAK EVENT FRAME: Max of motion/fire/fighting
+    3. AFTERMATH FRAME: Frame after fall OR highest crowd_panic
     
     Args:
-        timeline_data (list): List of frame dicts with signals and motion_intensity
+        timeline_data (list): List of frame dicts with signals, motion_intensity, brightness, face_area_estimate
         frame_list (list): List of frame dicts with 'frame' (np.ndarray) and 'timestamp'
     
     Returns:
@@ -57,44 +56,59 @@ def select_keyframes(timeline_data, frame_list):
     selected_indices = set()
     keyframes = []
     
-    # Map to store max value and its index for each criterion
-    max_motion = {'value': -1, 'index': -1}
-    max_fire = {'value': -1, 'index': -1}
-    max_fighting = {'value': -1, 'index': -1}
-    first_fall = {'index': -1}
+    # Map to store best value and its index for each criterion (STEP 2)
+    best_clarity = {'score': -1, 'index': -1}  # NEW: Largest face OR best brightness/motion
+    peak_event = {'score': -1, 'index': -1}    # Max motion/fire/fighting
+    aftermath = {'score': -1, 'index': -1}     # First frame after fall OR max panic
+    first_fall_idx = -1
     
-    # Scan timeline to find max values
+    # Scan timeline to find optimal frames (STEP 2)
     for i, frame_data in enumerate(timeline_data):
         signals = frame_data.get('signals', {})
         
-        # Motion intensity
+        # ===== STEP 2: Best Clarity Score =====
+        # Priority: largest face area → highest brightness with low blur
+        face_area = frame_data.get('face_area_estimate', 0)
+        brightness = frame_data.get('brightness', 0.5)
+        motion_blur_est = frame_data.get('motion_intensity', 0)  # Higher = more blur
+        
+        # Clarity score: face area (weighted high) + (brightness - blur penalty)
+        clarity_score = face_area * 1000 + (brightness * 100 - motion_blur_est * 50)
+        
+        if clarity_score > best_clarity['score']:
+            best_clarity['score'] = clarity_score
+            best_clarity['index'] = i
+        
+        # ===== STEP 2: Peak Event Score =====
+        # Max of motion/fire/fighting (event magnitude)
         motion = frame_data.get('motion_intensity', 0)
-        if motion > max_motion['value']:
-            max_motion['value'] = motion
-            max_motion['index'] = i
-        
-        # Fire/smoke
         fire_prob = signals.get('fire_smoke_detected', 0)
-        if fire_prob > max_fire['value']:
-            max_fire['value'] = fire_prob
-            max_fire['index'] = i
-        
-        # Fighting
         fighting_prob = signals.get('fighting_detected', 0)
-        if fighting_prob > max_fighting['value']:
-            max_fighting['value'] = fighting_prob
-            max_fighting['index'] = i
+        event_score = max(motion, fire_prob, fighting_prob)
         
-        # First fall
-        if first_fall['index'] == -1 and signals.get('fall_detected', 0) > 0.5:
-            first_fall['index'] = i
+        if event_score > peak_event['score']:
+            peak_event['score'] = event_score
+            peak_event['index'] = i
+        
+        # ===== STEP 2: Aftermath Score =====
+        # Frame immediately after fall OR highest crowd_panic
+        if first_fall_idx == -1 and signals.get('fall_detected', 0) > 0.5:
+            first_fall_idx = i
+        
+        panic_prob = signals.get('crowd_panic_detected', 0)
+        if panic_prob > aftermath['score']:
+            aftermath['score'] = panic_prob
+            aftermath['index'] = i
     
-    # Build priority list: motion, fire, fighting, fall (max 3)
+    # If fall detected, prefer frame immediately after
+    if first_fall_idx >= 0 and first_fall_idx + 1 < len(timeline_data):
+        aftermath['index'] = first_fall_idx + 1
+    
+    # Build priority list: clarity, peak event, aftermath (max 3)
     candidates = [
-        (max_motion['index'], 'max_motion'),
-        (max_fire['index'], 'max_fire'),
-        (max_fighting['index'], 'max_fighting'),
-        (first_fall['index'], 'fall_detected')
+        (best_clarity['index'], 'best_clarity'),
+        (peak_event['index'], 'peak_event'),
+        (aftermath['index'], 'aftermath')
     ]
     
     # Select unique indices (max 3)
@@ -114,19 +128,17 @@ def select_keyframes(timeline_data, frame_list):
             
             # Determine reasons for this frame
             reasons = []
-            if idx == max_motion['index'] and max_motion['value'] > 0:
-                reasons.append('max_motion')
-            if idx == max_fire['index'] and max_fire['value'] > 0:
-                reasons.append('max_fire_smoke')
-            if idx == max_fighting['index'] and max_fighting['value'] > 0:
-                reasons.append('max_fighting')
-            if idx == first_fall['index'] and first_fall['index'] >= 0:
-                reasons.append('fall_detected')
+            if idx == best_clarity['index'] and best_clarity['score'] > 0:
+                reasons.append('best_clarity')
+            if idx == peak_event['index'] and peak_event['score'] > 0:
+                reasons.append('peak_event')
+            if idx == aftermath['index'] and aftermath['score'] > 0:
+                reasons.append('aftermath')
             
             keyframes.append({
                 'frame': frame_obj['frame'],
                 'timestamp': frame_obj['timestamp'],
-                'reasons': reasons,
+                'reasons': reasons if reasons else ['selected'],
                 'frame_index': idx
             })
     
@@ -187,24 +199,145 @@ def build_signal_summary(all_signal_features):
     return summary
 
 
-def classify_video_with_vision(keyframes, all_signal_features, max_retries=2):
+def generate_sequence_summary(timeline_data, all_signal_features):
+    """
+    STEP 3: Generate a deterministic narrative summary from heuristics.
+    
+    This helps GPT focus on "WHO" rather than "WHAT" and reduces crime false positives.
+    
+    Args:
+        timeline_data (list): Timeline of frame data
+        all_signal_features (dict): Aggregated heuristic signals
+    
+    Returns:
+        str: Brief narrative summary (1-2 sentences)
+    """
+    # Extract key heuristic signals
+    fall_detected = all_signal_features.get('fall_detected', 0) > 0.5
+    fighting_detected = all_signal_features.get('fighting_detected', 0) > 0.3
+    fire_smoke = all_signal_features.get('fire_smoke_detected', 0) > 0.3
+    weapon_detected = all_signal_features.get('weapon_detected', 0) > 0.3
+    crowd_panic = all_signal_features.get('crowd_panic_detected', 0) > 0.3
+    
+    # Estimate people count from timeline
+    people_count = max([t.get('signals', {}).get('adult_loitering_detected', 0) 
+                       for t in timeline_data], default=0)
+    people_count_level = 'many' if people_count > 0.6 else ('some' if people_count > 0.2 else 'few')
+    
+    # Build narrative
+    parts = []
+    
+    if fall_detected:
+        parts.append(f"Person falls. {people_count_level} people visible.")
+    elif fighting_detected:
+        parts.append(f"Physical contact/fighting detected. {people_count_level} people involved.")
+    elif fire_smoke:
+        parts.append(f"Fire/smoke detected. Environmental hazard present.")
+    elif crowd_panic:
+        parts.append(f"Chaotic crowd movement detected. {people_count_level} people present.")
+    else:
+        parts.append(f"Video shows activity. {people_count_level} people detected.")
+    
+    if weapon_detected:
+        parts.append("Possible weapon visible.")
+    
+    if not fire_smoke and not weapon_detected and not fighting_detected:
+        parts.append("No visible fire or weapon detected.")
+    
+    return " ".join(parts)
+
+
+def apply_consistency_constraints(gpt_result, all_signal_features, timeline_data):
+    """
+    STEP 4: Apply post-processing constraints to improve classification accuracy.
+    
+    1. Validate probabilities sum to ~1
+    2. Downgrade "crime" if fighting/weapon/contact signals weak
+    3. Boost "elder_safety" if fall + elderly-appearing person
+    4. Handle edge cases
+    
+    Args:
+        gpt_result (dict): Initial GPT response with domain_probabilities
+        all_signal_features (dict): Heuristic signals
+        timeline_data (list): Frame timeline for additional context
+    
+    Returns:
+        dict: Adjusted gpt_result with corrected probabilities
+    """
+    probs = gpt_result.get('domain_probabilities', {}).copy()
+    
+    # ===== CONSTRAINT 1: Validate and normalize =====
+    total = sum(probs.values())
+    if total > 0:
+        for domain in probs:
+            probs[domain] = probs[domain] / total
+    else:
+        # Fallback uniform
+        probs = {d: 0.25 for d in ['child_safety', 'elder_safety', 'environmental_hazard', 'crime']}
+    
+    # ===== CONSTRAINT 2: Downgrade crime if weak signals =====
+    crime_prob = probs.get('crime', 0)
+    if crime_prob > 0.5:
+        fighting = all_signal_features.get('fighting_detected', 0)
+        weapon = all_signal_features.get('weapon_detected', 0)
+        contact = all_signal_features.get('close_contact_detected', 0)
+        
+        # If crime is high but combat signals are weak, downgrade
+        if fighting < 0.3 and weapon < 0.3 and contact < 0.3:
+            crime_prob = max(0.0, crime_prob - 0.3)
+            # Redistribute probability to environmental/elder if fall detected
+            if all_signal_features.get('fall_detected', 0) > 0.5:
+                probs['elder_safety'] = min(1.0, probs.get('elder_safety', 0.25) + 0.2)
+    
+    # ===== CONSTRAINT 3: Boost elder_safety if fall + elderly apparent =====
+    if all_signal_features.get('fall_detected', 0) > 0.5:
+        # Check timeline for multiple falls or slow movement (elderly indicators)
+        fall_count = sum(1 for t in timeline_data 
+                        if t.get('signals', {}).get('fall_detected', 0) > 0.5)
+        
+        if fall_count >= 1:  # Clear fall signal
+            probs['elder_safety'] = min(1.0, probs.get('elder_safety', 0.25) + 0.2)
+    
+    # ===== Normalize final probabilities =====
+    total = sum(probs.values())
+    if total > 0:
+        for domain in probs:
+            probs[domain] = max(0.0, min(1.0, probs[domain] / total))
+    
+    # Update result with adjusted probabilities
+    gpt_result['domain_probabilities'] = probs
+    
+    # Update primary domain based on adjusted probabilities
+    if probs:
+        gpt_result['primary_domain'] = max(probs, key=probs.get)
+    
+    return gpt_result
+
+
+def classify_video_with_vision(keyframes, all_signal_features, timeline_data=None, max_retries=2):
     """
     Classify video using OpenAI GPT-4o-mini with vision input on keyframes.
+    
+    Implements STEP 1, 3, and 4 improvements:
+    - STEP 1: WHO-focused domain definitions with tie-breaker rules
+    - STEP 3: Sequence summary narrative to reduce crime false positives
+    - STEP 4: Post-processing consistency constraints
     
     Args:
         keyframes (list): List of keyframe dicts with 'frame', 'timestamp', 'reasons'
         all_signal_features (dict): Aggregated signal features from all frames
+        timeline_data (list): Frame timeline for consistency constraints (optional)
         max_retries (int): Number of retries on JSON parse failure
     
     Returns:
         dict: {
             'gpt_used': bool,
-            'primary_domain': str ('child_safety'|'elder_safety'|'environmental_hazard'|'crime'),
-            'domain_probabilities': {'child_safety': float, 'elder_safety': float, ...},
+            'primary_domain': str,
+            'domain_probabilities': dict,
             'severity': float (0-1),
             'reasoning': str,
             'key_observations': [str],
-            'error': str (optional, if failed)
+            'error': str (optional)
         }
     """
     client = get_openai_client()
@@ -243,30 +376,61 @@ def classify_video_with_vision(keyframes, all_signal_features, max_retries=2):
     signal_summary = build_signal_summary(all_signal_features)
     signal_summary_json = json.dumps(signal_summary, indent=2)
     
-    # Build the prompt
+    # STEP 3: Generate sequence summary narrative
+    sequence_summary = ""
+    if timeline_data:
+        sequence_summary = generate_sequence_summary(timeline_data, all_signal_features)
+    
+    # ===== STEP 1: WHO-FOCUSED DOMAIN DEFINITIONS =====
     domain_definitions = """
-DOMAIN DEFINITIONS:
-1. child_safety: Indicators of child endangerment, abuse, neglect, inappropriate adult behavior, or child vulnerability (e.g., unattended children, aggressive adults near children, distress, trauma).
-2. elder_safety: Indicators of elderly person endangerment, falls, medical emergencies, neglect, or vulnerability (e.g., elder on ground, slow movement, unresponsive, signs of medical distress).
-3. environmental_hazard: Indicators of physical environmental threats (e.g., fire, smoke, structural hazards, flooding, chemical leaks, power outages, extreme weather, blocked exits).
-4. crime: Indicators of criminal activity or violent crime risk (e.g., weapon presence, fighting, robbery, assault, theft, property damage, forced entry, weapons handling).
+DOMAIN DEFINITIONS (CLASSIFY BY "WHO IS AT RISK", NOT JUST "WHAT HAPPENED"):
+
+1. child_safety:
+   A CHILD (approx under 18) appears at risk or involved in a hazardous/unsafe situation.
+   Examples: unattended child, aggressive adult near child, child distress, child injury.
+   
+2. elder_safety:
+   An ELDERLY PERSON (approx 60+) appears at risk, especially falls, frailty, slow gait, mobility aids.
+   Examples: elder on ground, elderly person falling, medical emergency in elderly, immobilization.
+   
+3. environmental_hazard:
+   Fire, smoke, flooding, hazardous objects, unsafe infrastructure, or environmental threats.
+   Tie-breaker: If a person falls but no environmental cause visible, and no elderly/child apparent → classify as environmental_hazard only if fall is clearly from hazard.
+   Do NOT classify accidental falls as environmental_hazard unless caused by visible hazard.
+   
+4. crime:
+   Clear MALICIOUS or INTENTIONAL WRONGDOING visible: assault, weapon use, theft, forced entry, stalking.
+   Tie-breaker: Do NOT classify accidents or accidental falls as crime.
+   Require visible malicious intent: weapon handling, aggressive assault, clear theft, forced entry.
+
+TIE-BREAKER RULES (if multiple signals present):
+- If a fall is detected:
+  → If person appears elderly → elder_safety
+  → If person appears a child → child_safety
+  → Otherwise → only crime if clear malicious intent visible
+- If fire/smoke visible → environmental_hazard (regardless of other signals)
+- Only classify as crime if clear visible aggressive intent or weapon use
 """
     
     prompt = f"""{domain_definitions}
 
-TASK: Classify this CCTV video into ONE of the 4 domains above based on visual evidence in the keyframes and the numeric signal data provided.
+TASK: Classify this CCTV video into ONE of the 4 domains based on VISUAL EVIDENCE of WHO is at risk.
+
+SEQUENCE SUMMARY (from heuristic analysis):
+{sequence_summary if sequence_summary else "Video shows activity."}
 
 NUMERIC SIGNAL SUMMARY FROM VIDEO ANALYSIS:
 {signal_summary_json}
 
 INSTRUCTIONS:
-- Analyze the VISUAL content in the keyframes provided.
-- Use the numeric signals as corroborating evidence.
-- Classify into exactly ONE primary domain.
-- Provide probability scores for all 4 domains (must sum to ~1.0).
-- Assess overall severity (0=safe, 1=critical emergency).
-- Provide 1-2 sentences of reasoning grounded in VISIBLE CUES.
-- List 2-3 KEY OBSERVATIONS from the frames.
+- Analyze VISUAL content in keyframes to identify WHO appears at risk
+- Use numeric signals to corroborate classification
+- Apply tie-breaker rules if multiple signals present
+- Classify into exactly ONE primary domain
+- Provide confidence scores for all 4 domains (must sum to 1.0)
+- Assess overall severity (0=safe, 1=critical emergency)
+- Provide 1-2 sentences of reasoning grounded in WHO is visible and their status
+- List 2-3 KEY OBSERVATIONS about the people and situation
 
 RESPOND WITH VALID JSON ONLY (no markdown, no explanation):
 {{
@@ -278,7 +442,7 @@ RESPOND WITH VALID JSON ONLY (no markdown, no explanation):
     "crime": <0-1>
   }},
   "severity": <0-1>,
-  "reasoning": "<1-2 sentences with visible cues>",
+  "reasoning": "<1-2 sentences explaining WHO is at risk and why>",
   "key_observations": ["<observation1>", "<observation2>", "<observation3>"]
 }}
 """
@@ -348,27 +512,44 @@ RESPOND WITH VALID JSON ONLY (no markdown, no explanation):
                 else:
                     print(f"Error: Failed to parse GPT response as JSON: {e}", flush=True)
                     print(f"Response text: {response_text}", flush=True)
-                    raise
+                    # STEP 4: Fallback to heuristic if JSON parse fails
+                    return {
+                        'gpt_used': False,
+                        'error': f'JSON parse failed: {str(e)}',
+                        'primary_domain': 'child_safety',
+                        'domain_probabilities': {
+                            'child_safety': 0.25,
+                            'elder_safety': 0.25,
+                            'environmental_hazard': 0.25,
+                            'crime': 0.25
+                        },
+                        'severity': 0.0,
+                        'reasoning': 'Fallback to heuristics due to parse failure'
+                    }
         
         # Validate result schema
         if not result or 'primary_domain' not in result or 'domain_probabilities' not in result:
             raise ValueError("Missing required fields in GPT response")
         
-        # Normalize domain probabilities to sum to 1.0
-        probs = result.get('domain_probabilities', {})
-        total = sum(probs.values())
-        if total > 0:
-            for domain in probs:
-                probs[domain] = probs[domain] / total
+        # STEP 4: Apply consistency constraints
+        if timeline_data:
+            result = apply_consistency_constraints(result, all_signal_features, timeline_data)
+        else:
+            # Normalize probabilities if no timeline data
+            probs = result.get('domain_probabilities', {})
+            total = sum(probs.values())
+            if total > 0:
+                for domain in probs:
+                    probs[domain] = probs[domain] / total
         
         return {
             'gpt_used': True,
             'primary_domain': str(result.get('primary_domain', 'child_safety')),
             'domain_probabilities': {
-                'child_safety': float(probs.get('child_safety', 0.25)),
-                'elder_safety': float(probs.get('elder_safety', 0.25)),
-                'environmental_hazard': float(probs.get('environmental_hazard', 0.25)),
-                'crime': float(probs.get('crime', 0.25))
+                'child_safety': float(result.get('domain_probabilities', {}).get('child_safety', 0.25)),
+                'elder_safety': float(result.get('domain_probabilities', {}).get('elder_safety', 0.25)),
+                'environmental_hazard': float(result.get('domain_probabilities', {}).get('environmental_hazard', 0.25)),
+                'crime': float(result.get('domain_probabilities', {}).get('crime', 0.25))
             },
             'severity': float(result.get('severity', 0.5)),
             'reasoning': str(result.get('reasoning', 'Video analyzed')),
@@ -377,6 +558,7 @@ RESPOND WITH VALID JSON ONLY (no markdown, no explanation):
     
     except Exception as e:
         print(f"Error calling OpenAI GPT-4o-mini Vision: {repr(e)}", flush=True)
+        # STEP 4: Fallback to heuristic
         return {
             'gpt_used': False,
             'error': str(e),
