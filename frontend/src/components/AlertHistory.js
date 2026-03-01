@@ -4,7 +4,7 @@ import React from 'react';
  * AlertHistory Component
  * 
  * Displays a table of recent alerts with their scores, ranks, and safety domains.
- * Alerts are automatically purged server-side after 15 minutes.
+ * Alerts persist until manually cleared.
  */
 function AlertHistory({ alerts, domain, onClearAlerts }) {
   const getBadgeClass = (dangerRank) => {
@@ -55,29 +55,21 @@ function AlertHistory({ alerts, domain, onClearAlerts }) {
   return (
     <div className="card alert-history">
       <div className="alert-history-header">
-        <div>
-          <h2 style={{ margin: 0 }}>📋 Alert History</h2>
-          <p style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: 0, marginTop: '0.25rem' }}>
-            Recent alerts (auto-refreshed). Alerts purge after 15 minutes for privacy.
-          </p>
-        </div>
+        <h2>Alert History</h2>
         {alerts.length > 0 && (
           <button 
             className="clear-btn" 
             onClick={onClearAlerts}
             title="Clear all alerts from history"
           >
-            🗑️ Clear
+            Clear
           </button>
         )}
       </div>
 
       {alerts.length === 0 ? (
         <div className="empty-state">
-          <p>📭 No alerts yet</p>
-          <p style={{ fontSize: '0.85rem' }}>
-            Run signal analysis to generate alerts.
-          </p>
+          <p>No alerts yet. Run signal analysis to generate alerts.</p>
         </div>
       ) : (
         <table className="alert-table">

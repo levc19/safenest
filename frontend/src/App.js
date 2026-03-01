@@ -48,11 +48,9 @@ function App() {
     setLatestResult(null); // Clear previous results when domain changes
   }, [selectedDomain, currentDomain]);
 
-  // Fetch alerts on component mount and periodically
+  // Fetch alerts on component mount
   useEffect(() => {
     fetchAlerts();
-    const interval = setInterval(fetchAlerts, 3000); // Refresh every 3 seconds
-    return () => clearInterval(interval);
   }, []);
 
   const handleSignalChange = (signalName) => {
@@ -73,7 +71,7 @@ function App() {
       });
       setLatestResult(response.data);
       // Refresh alerts after analysis
-      fetchAlerts();
+      await fetchAlerts();
     } catch (err) {
       setError(
         err.response?.data?.error || `Error: ${err.message}. Is backend running on port 5000?`

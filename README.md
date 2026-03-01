@@ -1,247 +1,199 @@
-# SafeNest
+# 🛡️ SafeNest  
+### Privacy-Preserving Community Safety Risk Intelligence
 
-SafeNest is a small developer demo that analyzes anonymized safety signals from CCTV-style video and classifies footage into one or more safety domains (for example: `child_safety`, `elderly_safety`, `environmental_hazards`, `crime`). For each classified domain it computes a domain-specific Crisis Risk Index (CRI) — a transparent, rule-based risk score used to rank and triage incidents.
-
-- a Flask backend (`backend/`) that exposes a JSON API for analysis and optional domain classification
-- a React frontend (`frontend/`) for uploading videos and interacting with the demo
-
-This repository is intended for local development and demonstration purposes only. See the quick start for rapid setup: [QUICKSTART.md](QUICKSTART.md)
-
-Project layout (top-level)
-
-```
-safenest/
-├─ backend/      # Flask API and Python utilities
-├─ frontend/     # React app
-├─ videos/       # sample/test videos
-├─ QUICKSTART.md
-└─ README.md
-```
-
-License / notes
-
-- This is a prototype; do not use for real monitoring without appropriate safeguards.
-- For detailed developer notes and examples, open `backend/` and `frontend/` folders.
-- ✅ Risk classifications (danger tier)
-- ✅ Timestamps
-- ✅ Escalation probabilities
-
-### Data Retention
-- **Automatic Purge:** All alerts deleted after 15 minutes
-- **No Archival:** No long-term storage or databases
-- **Simulation Only:** No real CCTV, microphones, or biometric processing
-
-This is a **simulation prototype**—in production, additional safeguards (encryption, audit logging, consent systems) would be required.
+SafeNest is a real-time public safety intelligence system that analyzes CCTV footage, extracts safety-relevant signals, classifies risk domains, and computes a Crisis Risk Index (CRI) to support early detection, situational awareness, and emergency response planning.
 
 ---
 
-## 📡 API Endpoints
+## 🚨 Problem Context
 
-### `POST /analyze-risk`
+Many communities face public safety challenges due to:
 
-Analyze safety signals, optionally include or request domain classification, and compute a domain-specific risk score.
+- Limited surveillance coverage
+- Delayed emergency response
+- Fragmented monitoring systems
+- Low-quality or outdated infrastructure
 
-**Request (minimal):**
-```json
-{
-  "domain": "crime",                
-  "signals": {
-    "distress_audio_detected": true,
-    "rapid_motion_detected": true,
-    "stationary_person_detected": false,
-    "loitering_detected": true,
-    "multiple_reports": false,
-    "smoke_or_fire_detected": false
-  },
-  "context": {
-    "camera_id": "cam-123",
-    "timestamp": "2026-03-01T14:32:00Z"
-  }
-}
-```
+Current systems often rely on manual reporting and reactive workflows, allowing incidents to escalate before intervention.
 
-The `domain` field may be provided by the client or omitted to let the backend infer one or more domains from the signals and context.
-
-**Response:**
-```json
-{
-  "domain": "crime",
-  "risk_score": 75.5,
-  "danger_rank": "Orange",
-  "danger_tier": "High Risk",
-  "triggered_signals": ["distress_audio_detected","rapid_motion_detected","loitering_detected"],
-  "escalation_probability": 90,
-  "confidence": 0.9,
-  "timestamp": "2026-03-01T14:32:15.123456Z",
-  "alert_id": 1
-}
-```
-
-### `GET /alerts`
-
-Retrieve recent alerts (auto-purged after 15 minutes).
-
-**Response:**
-```json
-{
-  "alerts": [
-    {
-      "alert_id": 3,
-      "risk_score": 75.5,
-      "danger_rank": "Orange",
-      "danger_tier": "High Risk",
-      "triggered_signals": ["distress_scream_detected", "rapid_motion_detected"],
-      "escalation_probability": 90,
-      "confidence": 0.9,
-      "timestamp": "2026-03-01T14:32:15.123456Z"
-    },
-    ...
-  ],
-  "count": 5,
-  "retention_minutes": 15,
-  "timestamp": "2026-03-01T14:35:00.000000Z"
-}
-```
-
-### `GET /health`
-
-Health check endpoint.
+There is a need for scalable, privacy-conscious, AI-powered systems that enable early detection and actionable response in diverse community environments.
 
 ---
 
-## 🎮 Demo Mode
+## 💡 Our Solution
 
-Click the **"🎲 Demo Mode"** button to randomize all signals at once. Perfect for judges to quickly see different risk scenarios!
+SafeNest transforms CCTV footage into structured safety intelligence by:
 
----
+1. Detecting safety-relevant signals
+2. Classifying footage into safety domains:
+   - 👶 Child Safety  
+   - 👴 Elder Safety  
+   - 🌋 Environmental Hazard  
+   - 🚔 Crime  
+3. Computing a **Crisis Risk Index (CRI)** score (0–100)
+4. Estimating escalation probability
+5. Logging alerts
+6. Visualizing geographic risk using a Singapore heatmap
 
-## 📊 Risk Scoring Examples
-
-### Example 1: All Clear
-```
-Signals: All OFF
-Risk Score: 0
-Danger Rank: Green (Safe)
-Escalation: 20%
-```
-
-### Example 2: Mild Concern
-```
-Signals: after_school_hours=ON
-Risk Score: 10 × 0.6 = 6
-Danger Rank: Green (Safe)
-Escalation: 30%
-```
-
-### Example 3: High Alert
-```
-Signals (example domain=crime):
-  - distress_audio_detected=ON (+45)
-  - rapid_motion_detected=ON (+35)
-  - loitering_detected=ON (+30)
-  - multiple_reports=ON (+20)
-
-Weighted Sum: 45+35+30+20 = 130
-Confidence: 0.9 (4 signals)
-Risk Score: 130 × 0.9 = 117 → Clamped to 100
-Danger Rank: Red (Critical)
-Escalation: 20+25+20+15+10 = 90%
-```
+This enables faster decision-making and smarter emergency planning.
 
 ---
 
-## 🛠️ Tech Stack
+## 🔍 Key Features
 
-- **Frontend:** React 18, Axios, CSS Grid
-- **Backend:** Flask, Python 3.7+
-- **Storage:** In-memory array (alerts list)
-- **Communication:** REST API with CORS
-
-### Dependencies
-
-**Backend (`requirements.txt`):**
-- Flask 2.3.2
-- flask-cors 4.0.0
-- Werkzeug 2.3.6
-
-**Frontend (`package.json`):**
-- react 18.2.0
-- react-dom 18.2.0
-- axios 1.4.0
-- react-scripts 5.0.1
+- 🎥 Video-based safety signal extraction
+- 🧠 AI-powered domain classification
+- 📊 Crisis Risk Index (0–100)
+- 📈 Escalation probability estimation
+- 🗂 Alert history tracking
+- 🗺 Singapore risk heatmap visualization
+- 🔐 Privacy-preserving design (no facial recognition, no identity tracking)
 
 ---
 
-## 🧪 Testing the System
+## 🏗 System Architecture
 
-### Manual Test Scenario
+### Frontend
+- React-based dashboard
+- Signal simulator
+- Alert history panel
+- Risk analysis display
+- Geographic heatmap visualization
 
-1. **Dashboard loads:** Both frontend and backend running
-2. **All signals OFF:** Click "Analyze Risk" → Risk score ≈ 0, Green tier
-3. **Toggle some signals:** Click "Analyze Risk" → Check risk score changes match weighted sum
-4. **Demo Mode:** Click "🎲 Demo Mode" → Random signals → Instant analysis
-5. **Alert History:** Verify alerts appear in the table, showing most recent first
-6. **Privacy Banner:** Read Privacy & Anonymity explainer
-7. **15-min retention:** Reload page → Old alerts should disappear (demo: instant with mock timestamps)
+### Backend
+- Flask API
+- Video frame processing
+- Signal feature generation
+- OpenAI-powered classification
+- Risk scoring engine
+- In-memory alert storage
 
-### Backend Testing (Python)
-
-```bash
-cd safenest/backend
-python -c "from utils.risk_scorer import analyze_risk; result = analyze_risk({'distress_scream_detected': True, 'rapid_motion_detected': True, 'child_stopped_moving': False, 'adult_loitering_detected': True, 'multiple_reports': False, 'after_school_hours': True}); print(result)"
-```
-
----
-
-## 📝 Notes for Judges
-
-- **Privacy-First:** This prototype emphasizes anonymity at every layer. No biometric data, faces, or IDs.
-- **Explainability:** Risk scoring uses transparent, rule-based logic—not ML black boxes.
--- **Responsible Design:** Demonstrates how to build safety tools responsibly for public safety domains (children, elderly, environmental hazards, crime), and includes privacy-preserving defaults.
-- **Extensibility:** The risk scoring engine can be enhanced with additional signals, weights, or smarter confidence factors.
-- **Simulation Only:** This is a proof-of-concept. Real deployments would require legal review, consent frameworks, and audit logging.
+### AI Integration
+- Uses OpenAI API for:
+  - Signal interpretation
+  - Domain classification
+  - Risk assessment reasoning
 
 ---
 
-## 🚀 Future Enhancements
+## 📊 How Safety Signals Are Interpreted
 
-- Add Chart.js for risk trend visualization over time
-- Implement user authentication and role-based access
-- Add configurable signal weights (admin panel)
-- Integrate with real safety data APIs
-- Add incident lifecycle management (open, in-progress, resolved)
-- Deploy to cloud (AWS, Google Cloud, Azure)
-- Add comprehensive audit logging
-- Multi-language support
+From CCTV footage, SafeNest extracts contextual indicators such as:
 
----
+- Distress behavior
+- Loitering patterns
+- Rapid motion anomalies
+- Environmental hazards (e.g., fire/smoke)
+- Suspicious movement patterns
 
-## 📄 License
-
-This is a hackathon prototype. Use freely for educational and demonstration purposes.
+These signals are structured into a standardized format and passed to the AI model for domain classification and severity estimation.
 
 ---
 
-## ❓ FAQ
+## 📈 Crisis Risk Index (CRI)
 
-**Q: Is this actually monitoring children?**  
-A: No. This is a simulation prototype. No real audio, video, or biometric data is processed.
+The CRI is a score between **0 and 100** representing overall threat level.
 
-**Q: How is data deleted after 15 minutes?**  
-A: Every `/alerts` request filters out alerts older than 15 minutes. No background jobs needed.
+Conceptually, it considers:
+- Severity of detected signals
+- Number of compounding indicators
+- Vulnerable population context
+- Escalation likelihood
 
-**Q: Can I customize signal weights?**  
-A: Yes! Edit the `SIGNAL_WEIGHTS` dict in `backend/utils/risk_scorer.py`.
+Risk levels:
+- 🟢 0–30 → Safe  
+- 🟡 31–60 → Watch  
+- 🟠 61–80 → High Risk  
+- 🔴 81–100 → Critical  
 
-**Q: How do I deploy this to production?**  
-A: Don't, without significant security/legal review. This is a prototype for educational purposes.
-
----
-
-## 📞 Support
-
-Questions? Check the code comments or review the risk scoring logic in `backend/utils/risk_scorer.py`.
+The CRI serves as a decision-support indicator — not a replacement for human judgment.
 
 ---
 
-**Built with ❤️ for public safety and privacy.**
+## 🗺 Heatmap Visualization
+
+SafeNest maps alerts onto a Singapore island visualization to:
+
+- Identify high-risk clusters
+- Monitor geographic concentration of incidents
+- Support emergency resource planning
+- Improve long-term preventive deployment
+
+Bubble size reflects alert concentration.
+
+---
+
+## 🔐 Privacy & Ethical Considerations
+
+SafeNest is designed with privacy-first principles:
+
+- ❌ No facial recognition
+- ❌ No identity tracking
+- ❌ No biometric storage
+- ✅ Signal-based risk abstraction
+- ✅ Short-lived alert storage
+- ✅ Contextual analysis only
+
+The system focuses on **situational intelligence**, not surveillance profiling.
+
+---
+
+## ⚙️ Tech Stack
+
+- **Frontend:** React
+- **Backend:** Flask (Python)
+- **AI:** OpenAI API
+- **Visualization:** Custom heatmap rendering
+- **Styling:** CSS
+- **Deployment:** Local development environment
+
+---
+
+## 🚀 Demo Flow
+
+1. Select Safety Domain
+2. Toggle relevant safety signals OR upload video
+3. Click **Analyze Risk**
+4. View:
+   - CRI score
+   - Escalation probability
+   - Domain classification
+   - Alert history update
+   - Heatmap visualization
+
+---
+
+## ⚠️ Limitations
+
+- Uses sampled frames, not full motion understanding
+- In-memory alert storage (not persistent)
+- Risk scoring is heuristic + AI-guided (not calibrated to real emergency datasets)
+- Heatmap coordinates are simulated for demo purposes
+
+---
+
+## 🔮 Future Improvements
+
+- Persistent database storage
+- Real geographic coordinate integration
+- Offline lightweight edge model
+- Multi-camera correlation
+- Real-time streaming ingestion
+- Emergency service API integration
+- Model fine-tuning for safety contexts
+
+---
+
+## 🏁 Conclusion
+
+SafeNest demonstrates how AI-powered safety intelligence can:
+
+- Enable earlier detection
+- Improve situational awareness
+- Support coordinated response
+- Operate responsibly in diverse community environments
+
+High-quality safety systems can be delivered effectively — and ethically.
+
+---
+
