@@ -1094,12 +1094,12 @@ body {
 .probability-bars {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .probability-item {
   display: grid;
-  grid-template-columns: 120px 1fr 50px;
+  grid-template-columns: minmax(140px, auto) 1fr 50px;
   gap: 1rem;
   align-items: center;
 }
@@ -1108,6 +1108,8 @@ body {
   font-weight: 600;
   font-size: 0.9rem;
   color: var(--color-dark);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .probability-bar {
@@ -1375,7 +1377,12 @@ body {
   }
 
   .probability-item {
-    grid-template-columns: 80px 1fr 40px;
+    grid-template-columns: minmax(110px, auto) 1fr 40px;
+    gap: 0.75rem;
+  }
+
+  .probability-bars {
+    gap: 1rem;
   }
 
   .timeline-container {

@@ -8,9 +8,9 @@ export default function VideoAnalysisResults({ result }) {
   const getDomainEmoji = (domainId) => {
     const emojis = {
       child_safety: '👧',
-      elder_care: '👴',
-      environmental: '🏠',
-      crime_prevention: '🚔',
+      elder_safety: '👴',
+      environmental_hazard: '🏠',
+      crime: '🚔',
     };
     return emojis[domainId] || '🎯';
   };
@@ -18,9 +18,9 @@ export default function VideoAnalysisResults({ result }) {
   const getDomainLabel = (domainId) => {
     const labels = {
       child_safety: 'Child Safety',
-      elder_care: 'Elder Care',
-      environmental: 'Environmental Hazards',
-      crime_prevention: 'Crime Prevention',
+      elder_safety: 'Elder Safety',
+      environmental_hazard: 'Environmental Hazard',
+      crime: 'Crime',
     };
     return labels[domainId] || domainId;
   };
