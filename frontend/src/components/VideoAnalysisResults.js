@@ -85,7 +85,7 @@ export default function VideoAnalysisResults({ result }) {
         </div>
         <div className="metric-box">
           <p className="metric-label">Escalation Risk</p>
-          <p className="metric-value">{result.escalation_probability}%</p>
+          <p className="metric-value">{parseFloat(result.escalation_probability).toFixed(1)}%</p>
         </div>
         <div className="metric-box">
           <p className="metric-label">Frames Analyzed</p>
